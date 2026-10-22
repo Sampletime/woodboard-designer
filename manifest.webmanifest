@@ -1,0 +1,11 @@
+{
+  "name": "Woodboard Designer",
+  "short_name": "Woodboard",
+  "description": "Design laminated panels and end-grain chopping boards.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0eeeb",
+  "theme_color": "#29241f",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

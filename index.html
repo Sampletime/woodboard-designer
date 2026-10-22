@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Woodboard Designer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#29241f">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root { color-scheme: light; --ink:#27231f; --line:#d6d0c8; --paper:#fff; --panel:#f7f5f2; --accent:#74543d; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#f0eeeb; }
+header { background:#29241f; color:#fff; padding:18px 24px; }
+header h1 { margin:0 0 4px; font-size:22px; font-weight:650; }
+header p { margin:0; color:#ddd4ca; font-size:13px; }
+main { display:grid; grid-template-columns:minmax(320px,430px) minmax(0,1fr); gap:14px; padding:14px; min-height:calc(100vh - 75px); }
+.panel { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
+h2 { font-size:16px; margin:0 0 12px; }
+h3 { font-size:14px; margin:18px 0 8px; }
+.small { color:#625c56; font-size:12px; line-height:1.45; }
+.strip-head,.strip-row { display:grid; grid-template-columns:minmax(80px,1fr) 66px 28px 28px 58px; gap:5px; align-items:center; }
+.strip-head { font-size:11px; color:#655e57; padding:0 0 5px; }
+.strip-row { margin:5px 0; }
+input[type=text],input[type=number],select { width:100%; border:1px solid #c8c1b9; border-radius:6px; padding:8px 7px; font:inherit; font-size:13px; min-width:0; background:white; }
+input[type=color] { width:100%; height:34px; border:1px solid #c8c1b9; border-radius:6px; padding:2px; background:white; cursor:pointer; }
+button { border:1px solid #c4b7aa; border-radius:7px; background:#fff; color:var(--ink); padding:8px 10px; font:inherit; font-size:13px; cursor:pointer; }
+button:hover { background:#f3eee9; }
+button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+button.remove { padding:7px 5px; font-size:12px; }
+button.move { padding:7px 0; min-width:0; font-size:15px; line-height:1; }
+button:disabled { opacity:.35; cursor:not-allowed; background:#f4f2ef; }
+.actions { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+.params { display:grid; grid-template-columns:1fr 100px; gap:8px 10px; align-items:center; font-size:13px; }
+.params label { line-height:1.3; }
+input[type=checkbox] { margin-right:7px; }
+.preview-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.preview-head h2 { margin-bottom:4px; }
+#status { font-size:13px; color:#625c56; line-height:1.4; }
+#warning { display:none; margin:10px 0; padding:10px; border-radius:7px; color:#8b1d1d; background:#fff0ef; font-size:13px; }
+.drawing { margin-top:12px; border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; max-height:none; padding:12px; min-width:0; }
+#board { display:block; width:100%; height:auto; margin:0 auto; }
+.table-wrap { overflow-x:auto; margin-top:15px; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th,td { text-align:left; padding:7px 9px; border-bottom:1px solid #e7e2dd; }
+th { background:#f1efec; font-weight:650; }
+td:last-child,th:last-child { text-align:right; white-space:nowrap; }
+.library-table { margin-top:8px; }
+.library-table th,.library-table td { padding:5px; }
+.library-table td:last-child,.library-table th:last-child { text-align:left; }
+.library-table input[type=text] { padding:7px; }
+.library-table input[type=color] { min-width:48px; }
+footer { margin-top:12px; color:#6d665f; font-size:11px; line-height:1.4; }
+@media (max-width:1000px) { main { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:520px) { header { padding:16px; } main { padding:8px; gap:8px; } .panel { padding:11px; } .strip-head,.strip-row { grid-template-columns:minmax(70px,1fr) 58px 25px 25px 52px; gap:4px; } }
+</style>
+</head>
+<body>
+<header><h1>Woodboard Designer</h1><p>Browser Edition · Runs on this device without Python</p></header>
+<main>
+<section class="panel">
+  <h2>Wood library</h2>
+  <div class="small">Define each wood species once. Every strip using that species shares its name and colour.</div>
+  <table class="library-table"><thead><tr><th>Wood species</th><th>Colour</th><th></th></tr></thead><tbody id="speciesRows"></tbody></table>
+  <div class="actions"><button id="addSpecies">+ Add wood species</button></div>
+  <h3>Glue-up strips</h3>
+  <div class="small">Choose a species for each strip and set its width. The same species can be used for multiple strips.</div>
+  <div class="strip-head" style="margin-top:12px"><span>Wood species</span><span>Width mm</span><span title="Move up">↑</span><span title="Move down">↓</span><span></span></div>
+  <div id="strips"></div>
+  <div class="actions"><button id="add">+ Add strip</button><button id="reset">Reset example</button></div>
+  <h3>Cutting parameters</h3>
+  <div class="params">
+    <label for="panelLength">Starting panel length (mm)</label><input id="panelLength" type="number" min="0.1" step="any" value="300">
+    <label for="stripThickness">Original strip thickness (mm)</label><input id="stripThickness" type="number" min="0.1" step="any" value="30">
+    <label for="cutLength">Cross-cut length (finished board thickness, mm)</label><input id="cutLength" type="number" min="0.1" step="any" value="40">
+    <label for="kerf">Saw kerf (mm)</label><input id="kerf" type="number" min="0" step="any" value="3">
+  </div>
+  <div class="small" style="margin-top:6px">After the sections are rotated to expose end grain, the cross-cut length becomes the finished board thickness.</div>
+  <h3>Layout</h3>
+  <label class="small"><input id="reverse" type="checkbox" checked>Reverse alternate rows (experimental)</label>
+  <div class="actions"><button class="primary" id="export">Export SVG preview</button></div>
+  <footer>Prototype model only. Edge trimming, sanding allowances, and finished-size optimisation are not included.</footer>
+</section>
+<section class="panel">
+  <div class="preview-head"><div><h2>Live board preview</h2><div id="status">Preparing preview…</div></div></div>
+  <div id="warning"></div>
+  <div class="drawing"><svg id="board" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Original laminated glue-up on the left and finished end-grain board on the right"></svg></div>
+  <div class="table-wrap"><h3>Calculated dimensions and material use</h3><table><thead><tr><th>Measurement</th><th>Calculated value</th></tr></thead><tbody id="dimensions"></tbody></table></div>
+</section>
+</main>
+<script>
+const initialSpecies = [
+  {id:1,name:"Walnut",color:"#68452f"},
+  {id:2,name:"Beech",color:"#d9b786"},
+  {id:3,name:"Padauk",color:"#b94730"}
+];
+const initialStrips = [
+  {speciesId:1,width:"20"},{speciesId:2,width:"30"},{speciesId:3,width:"25"},{speciesId:1,width:"35"}
+];
+const speciesRows = document.getElementById("speciesRows");
+const stripsEl = document.getElementById("strips");
+const board = document.getElementById("board");
+const dimensions = document.getElementById("dimensions");
+const statusEl = document.getElementById("status");
+const warning = document.getElementById("warning");
+let species = initialSpecies.map(s=>({...s}));
+let strips = initialStrips.map(s=>({...s}));
+let nextSpeciesId = 4;
+let debounce = null;
+function getSpecies(id) { return species.find(s=>s.id===Number(id)); }
+function renderSpecies() {
+  speciesRows.innerHTML = "";
+  species.forEach(item => {
+    const tr=document.createElement("tr");
+    const nameTd=document.createElement("td"), colorTd=document.createElement("td"), actionTd=document.createElement("td");
+    const name=document.createElement("input"); name.type="text"; name.value=item.name; name.setAttribute("aria-label","Species name");
+    name.addEventListener("input",()=>{item.name=name.value; stripsEl.querySelectorAll("select").forEach(sel=>{const opt=Array.from(sel.options).find(o=>Number(o.value)===item.id);if(opt)opt.textContent=item.name||"Unnamed species";}); scheduleUpdate();});
+    const color=document.createElement("input"); color.type="color"; color.value=item.color; color.setAttribute("aria-label",item.name+" colour");
+    color.addEventListener("input",()=>{item.color=color.value; scheduleUpdate();});
+    const remove=document.createElement("button"); remove.className="remove"; remove.textContent="Remove";
+    remove.addEventListener("click",()=>{
+      if(strips.some(s=>s.speciesId===item.id)){showError("Remove or reassign every strip using “"+item.name+"” before deleting this species.");return;}
+      if(species.length<=1){showError("At least one wood species is required.");return;}
+      species=species.filter(s=>s.id!==item.id); renderSpecies(); renderStripInputs(); updatePreview();
+    });
+    nameTd.append(name); colorTd.append(color); actionTd.append(remove); tr.append(nameTd,colorTd,actionTd); speciesRows.appendChild(tr);
+  });
+}
+function renderStripInputs() {
+  stripsEl.innerHTML = "";
+  strips.forEach((strip,index)=>{
+    const row=document.createElement("div"); row.className="strip-row";
+    const select=document.createElement("select"); select.setAttribute("aria-label","Wood species for strip");
+    species.forEach(item=>{const option=document.createElement("option");option.value=String(item.id);option.textContent=item.name||"Unnamed species";select.appendChild(option);});
+    select.value=String(strip.speciesId);
+    select.addEventListener("change",()=>{strips[index].speciesId=Number(select.value);scheduleUpdate();});
+    const width=document.createElement("input"); width.type="number"; width.min="0.1"; width.step="any"; width.value=strip.width; width.setAttribute("aria-label","Strip width in millimetres");
+    width.addEventListener("input",()=>{strips[index].width=width.value;scheduleUpdate();});
+    const up=document.createElement("button"); up.className="move"; up.textContent="↑"; up.title="Move strip up"; up.setAttribute("aria-label",`Move ${getSpecies(strip.speciesId)?.name||"wood"} strip up`); up.disabled=index===0;
+    up.addEventListener("click",()=>{if(index>0){[strips[index-1],strips[index]]=[strips[index],strips[index-1]];renderStripInputs();updatePreview();}});
+    const down=document.createElement("button"); down.className="move"; down.textContent="↓"; down.title="Move strip down"; down.setAttribute("aria-label",`Move ${getSpecies(strip.speciesId)?.name||"wood"} strip down`); down.disabled=index===strips.length-1;
+    down.addEventListener("click",()=>{if(index<strips.length-1){[strips[index+1],strips[index]]=[strips[index],strips[index+1]];renderStripInputs();updatePreview();}});
+    const remove=document.createElement("button"); remove.className="remove"; remove.textContent="Remove";
+    remove.addEventListener("click",()=>{if(strips.length<=1){showError("At least one strip is required.");return;}strips.splice(index,1);renderStripInputs();updatePreview();});
+    row.append(select,width,up,down,remove); stripsEl.appendChild(row);
+  });
+}
+function inputs() {
+  return {
+    strips: strips.map(s=>{const sp=getSpecies(s.speciesId);return {name:(sp?sp.name:"").trim(),width:Number(s.width),color:sp?sp.color:"#68452f"};}),
+    panel_length:Number(document.getElementById("panelLength").value),
+    strip_thickness:Number(document.getElementById("stripThickness").value),
+    cut_length:Number(document.getElementById("cutLength").value),
+    kerf:Number(document.getElementById("kerf").value),
+    reverse_alternate:document.getElementById("reverse").checked
+  };
+}
+function showError(message) { warning.style.display="block";warning.textContent=message;statusEl.textContent="Preview waiting for valid inputs."; }
+function scheduleUpdate(){clearTimeout(debounce);debounce=setTimeout(updatePreview,120);}
+function fmt(n){return Number(n.toFixed(3)).toString();}
+function addDimension(label,value){const tr=document.createElement("tr"),td1=document.createElement("td"),td2=document.createElement("td");td1.textContent=label;td2.textContent=value;tr.append(td1,td2);dimensions.appendChild(tr);}
+function updatePreview(){
+  const data=inputs();
+  const invalid=data.strips.some(s=>!s.name||!Number.isFinite(s.width)||s.width<=0)||
+    !Number.isFinite(data.panel_length)||data.panel_length<=0||!Number.isFinite(data.strip_thickness)||data.strip_thickness<=0||
+    !Number.isFinite(data.cut_length)||data.cut_length<=0||!Number.isFinite(data.kerf)||data.kerf<0;
+  if(invalid){showError("Please give every species a name and enter positive strip widths, positive panel/cut/thickness values, and a non-negative kerf.");return;}
+  warning.style.display="none";
+  try {
+    const panelWidth = data.strips.reduce((sum, strip) => sum + strip.width, 0);
+    const sections = Math.max(0, Math.floor((data.panel_length + data.kerf) / (data.cut_length + data.kerf)));
+    const totalKerf = Math.max(0, sections - 1) * data.kerf;
+    const leftover = data.panel_length - (sections * data.cut_length + totalKerf);
+    if (!Number.isFinite(panelWidth) || !Number.isFinite(leftover)) throw new Error("These dimensions are too large to calculate.");
+    draw({panel_width: panelWidth, sections, total_kerf: totalKerf, leftover});
+  } catch(err) { showError(err.message || "Could not calculate the preview."); }
+}
+function draw(r){
+  const data=inputs(), panelLength=data.panel_length, panelWidth=r.panel_width, n=r.sections;
+  const thickness=data.strip_thickness, boardDepth=n*thickness;
+  const margin=20, titleH=30, bottomH=32, gap=42;
+  const drawingEl=document.querySelector(".drawing");
+  const availableWidth=Math.max(240,drawingEl.clientWidth-24);
+  const combinedWidth=panelLength+gap+panelWidth;
+  const maxDrawingHeight=Math.max(panelWidth,boardDepth,1);
+  const stacked=availableWidth<640;
+  const usableWidth=Math.max(180,availableWidth-margin*2);
+  const scale=Math.min(2.2,usableWidth/(stacked?Math.max(panelLength,panelWidth):combinedWidth),360/maxDrawingHeight);
+  const leftW=panelLength*scale, leftH=panelWidth*scale, rightW=panelWidth*scale, rightH=boardDepth*scale;
+  const leftX=margin, rightX=stacked?margin:leftX+leftW+gap*scale;
+  const topY=margin+titleH;
+  const rightTopY=stacked?topY+leftH+bottomH+titleH+12:topY;
+  const svgW=stacked?Math.max(leftW,rightW)+margin*2:margin*2+combinedWidth*scale;
+  const svgH=stacked?rightTopY+rightH+bottomH+margin:margin+titleH+Math.max(leftH,rightH)+bottomH+margin;
+  board.setAttribute("viewBox",`0 0 ${svgW} ${svgH}`);board.setAttribute("width","100%");board.removeAttribute("height");board.innerHTML="";
+  const NS="http://www.w3.org/2000/svg";
+  function node(tag,attrs,text){const el=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>el.setAttribute(k,v));if(text!==undefined)el.textContent=text;board.appendChild(el);return el;}
+  node("text",{x:leftX,y:22,"font-size":15,"font-weight":"600",fill:"#27231f"},"1. Original laminated panel");
+  node("text",{x:rightX,y:stacked?rightTopY-titleH+2:22,"font-size":15,"font-weight":"600",fill:"#27231f"},"2. Finished end-grain layout");
+  let y=topY;
+  for(const strip of data.strips){const h=strip.width*scale;node("rect",{x:leftX,y,width:leftW,height:h,fill:strip.color,stroke:"#29231d","stroke-width":0.8});y+=h;}
+  node("rect",{x:leftX,y:topY,width:leftW,height:leftH,fill:"none",stroke:"#222","stroke-width":1.5});
+  node("text",{x:leftX,y:topY+leftH+18,"font-size":11,fill:"#333"},`Panel: ${fmt(panelLength)} × ${fmt(panelWidth)} mm`);
+  for(let row=0;row<n;row++){
+    let x=rightX;let order=data.strips.map((_,i)=>i);if(data.reverse_alternate&&row%2===1)order.reverse();
+    for(const idx of order){const strip=data.strips[idx],w=strip.width*scale;node("rect",{x,y:rightTopY+row*thickness*scale,width:w,height:thickness*scale,fill:strip.color,stroke:"#29231d","stroke-width":0.8});x+=w;}
+  }
+  if(n>0)node("rect",{x:rightX,y:rightTopY,width:rightW,height:rightH,fill:"none",stroke:"#222","stroke-width":1.5});
+  node("text",{x:rightX,y:rightTopY+rightH+18,"font-size":11,fill:"#333"},`Board footprint: ${fmt(panelWidth)} × ${fmt(boardDepth)} mm`);
+  dimensions.innerHTML="";
+  addDimension("Finished board footprint (model)",`${fmt(panelWidth)} × ${fmt(boardDepth)} mm`);
+  addDimension("Board thickness (model)",`${fmt(data.cut_length)} mm`);
+  data.strips.forEach(s=>addDimension(`${s.name} width`,`${fmt(s.width)} mm`));
+  addDimension("Total laminate width",`${fmt(panelWidth)} mm`);
+  addDimension("Number of intact sections used",`${n}`);
+  addDimension("Starting panel length",`${fmt(data.panel_length)} mm`);
+  addDimension("Cross-cut length (finished board thickness)",`${fmt(data.cut_length)} mm`);
+  addDimension("Saw kerf per cut",`${fmt(data.kerf)} mm`);
+  addDimension("Total kerf between sections",`${fmt(r.total_kerf)} mm`);
+  addDimension("Remaining panel length",`${fmt(r.leftover)} mm`);
+  statusEl.textContent=`${data.strips.length} strips · laminate width ${fmt(panelWidth)} mm · ${n} usable sections · ${fmt(r.leftover)} mm remaining`;
+}
+document.getElementById("addSpecies").addEventListener("click",()=>{const id=nextSpeciesId++;species.push({id,name:"New wood",color:"#a88b64"});renderSpecies();renderStripInputs();});
+document.getElementById("add").addEventListener("click",()=>{if(!species.length){showError("Add a wood species before adding a strip.");return;}strips.push({speciesId:species[0].id,width:"20"});renderStripInputs();updatePreview();});
+document.getElementById("reset").addEventListener("click",()=>{species=initialSpecies.map(s=>({...s}));strips=initialStrips.map(s=>({...s}));nextSpeciesId=4;document.getElementById("panelLength").value="300";document.getElementById("stripThickness").value="30";document.getElementById("cutLength").value="40";document.getElementById("kerf").value="3";document.getElementById("reverse").checked=true;renderSpecies();renderStripInputs();updatePreview();});
+["panelLength","stripThickness","cutLength","kerf","reverse"].forEach(id=>{document.getElementById(id).addEventListener("input",scheduleUpdate);document.getElementById(id).addEventListener("change",scheduleUpdate);});
+document.getElementById("export").addEventListener("click",()=>{
+  try {
+    const clone = board.cloneNode(true);
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const source = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([source], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "woodboard_preview.svg"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  } catch(err) { showError(err.message || "Could not export SVG."); }
+});
+renderSpecies();renderStripInputs();updatePreview();
+window.addEventListener("resize",scheduleUpdate);
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
